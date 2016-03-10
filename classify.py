@@ -6,7 +6,10 @@ import matplotlib.pyplot as plt
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn import linear_model
 from sklearn.cluster import KMeans
+from sklearn.preprocessing import LabelEncoder
 from datetime import datetime
+import matplotlib
+
 
 def parse_time(x,type):
     DD=datetime.strptime(x,"%Y-%m-%d %H:%M:%S")
@@ -144,16 +147,10 @@ def logisticRegressionClassifier(train,evaluate,test,all_categories):
     y_train = train['Category'].astype('category')
     y_eval = evaluate['Category'].astype('category')
 
-    #logloss = []
-    #minC = 0
-    #minL = 100
     c = [0.05]
-    #,0.1,0.15,0.2,0.25,0.3,0.35,0.4,0.45,0.5,0.55,0.6,0.65,0.7,0.75,0.8,0.85,0.9,0.95,1]
-    #for cc in c:
-    #c = [0.05,0.1]
     for cc in c:
         print cc
-        logreg = linear_model.LogisticRegression(C=cc,multi_class='multinomial',solver='lbfgs')
+        logreg = linear_model.LogisticRegression(C=cc,multi_class='ovr')
         logreg.fit(x_train, y_train)
         outcome = logreg.predict(x_eval)
         l = llfun(y_eval, outcome)
@@ -170,13 +167,37 @@ def logisticRegressionClassifier(train,evaluate,test,all_categories):
     submit.to_csv('logit.csv', index = False)
     return outcomes
 
-    #print('Min C: %s',minC)
+def regress(train,evaluate,test,all_categories):
+    print('In Linear Regression')
 
-    #plt.plot(logloss)
-    #plt.savefig('logit_logloss_vs_C.png')
+    le = LabelEncoder()
 
-    #test data
-    #logreg = linear_model.LogisticRegression(C=0.05,multi_class='multinomial',solver='lbfgs')
+    x_train = train[['sun','mon','tues','wed','thur','fri','sat','BAYVIEW',
+ 'CENTRAL','INGLESIDE','MISSION','NORTHERN','PARK','RICHMOND','SOUTHERN','TARAVAL','TENDERLOIN','n_clusters','time','day','month','year']]
+    x_eval =  evaluate[['sun','mon','tues','wed','thur','fri','sat','BAYVIEW',
+ 'CENTRAL','INGLESIDE','MISSION','NORTHERN','PARK','RICHMOND','SOUTHERN','TARAVAL','TENDERLOIN','n_clusters','time','day','month','year']]
+    x_test = test[['sun','mon','tues','wed','thur','fri','sat','BAYVIEW',
+ 'CENTRAL','INGLESIDE','MISSION','NORTHERN','PARK','RICHMOND','SOUTHERN','TARAVAL','TENDERLOIN','n_clusters','time','day','month','year']]
+    y_train = train['Category'].astype('category')
+    y_train = le.fit_transform(y_train)
+
+    print y_train
+
+    y_eval = evaluate['Category'].astype('category')
+    y_eval = le.transform(y_eval)
+
+    clf = linear_model.LinearRegression()
+    clf.fit(x_train, y_train)
+    outcome = clf.predict(x_eval)
+    l = llfun(y_eval, outcome)
+    print 'loss: ',l
+
+    outcomes = clf.predict(x_test)
+    submit = pd.DataFrame({'Id': test.Id.tolist()})
+    for category in all_categories:
+        submit[category] = np.where(outcomes == category, 1, 0)
+    submit.to_csv('logit.csv', index = False)
+    return outcomes
 
 def dtreesClassifier(train, test):
     print 'In decision trees'
@@ -194,31 +215,54 @@ def kMeansClustering(train,evaluate,test):
     print f_test
     return (f_train,f_eval,f_test)
 
+def plots(train,categories):
+    matplotlib.style.use('ggplot')
+    temp = pd.crosstab([train.Category],train.PdDistrict)
+    temp.plot(kind='barh')
+    temp = pd.crosstab([train.Category],train.DayOfWeek)
+    temp.plot(kind='barh')
+    temp = pd.crosstab([train.Category],train.time)
+    temp.plot(kind='barh')
+    temp = pd.crosstab([train.loc[train['Category'].isin(categories),'Category']],train.time)
+    temp.plot(kind='barh')
+    train.time.value_counts().plot(kind='barh')
+    train.DayOfWeek.value_counts().plot(kind='barh')
+    train.PdDistrict.value_counts().plot(kind='barh')
+    train.Category.value_counts().plot(kind='barh')
+    matplotlib.pyplot.show()
+    #[train.loc[train['Category'].isin(categories),'Category']]
 
 def main():
    (train, test) = readData()
    train = convertToFeatures(train)
    test = convertToFeatures(test)
-   # print train.columns.values
+
+
+
+   #print train.columns.values
    # print train[1111:1136]
-   all_categories = pd.Series(train.Category.values).unique()
+   # all_categories = pd.Series(train.Category.values).unique()
    # print all_categories
 
    categories = ["LARCENY/THEFT", "OTHER OFFENSES", "NON-CRIMINAL","ASSAULT", "DRUG/NARCOTIC"]
-   trainWithTopCategories = sliceByCategory(categories, train)
-
-   (trainOnly,evaluateOnly) = divideIntoTrainAndEvaluationSet(0.8, trainWithTopCategories)
-   (f_train,f_eval,f_test)=kMeansClustering(trainOnly,evaluateOnly,test)
-
-   trainOnly["n_clusters"]=f_train
-   evaluateOnly["n_clusters"]=f_eval
-   test["n_clusters"]=f_test
+   plots(train,categories)
+   # trainWithTopCategories = sliceByCategory(categories, train)
+   #
+   # (trainOnly,evaluateOnly) = divideIntoTrainAndEvaluationSet(0.8, trainWithTopCategories)
+   # (f_train,f_eval,f_test)=kMeansClustering(trainOnly,evaluateOnly,test)
+   #
+   # trainOnly["n_clusters"]=f_train
+   # evaluateOnly["n_clusters"]=f_eval
+   # test["n_clusters"]=f_test
 
    # Call the classifiers - replace with your classifier
    #predictedLabels = classify("knn",trainOnly, evaluateOnly, test)
    #print(predictedLabels)
 
-   predictedLabels = classify("logit",trainOnly,evaluateOnly,test,all_categories)
-   print(predictedLabels)
+   # predictedLabels = classify("logit",trainOnly,evaluateOnly,test,all_categories)
+   # print(predictedLabels)
+
+   # predictedLabels = regress(trainOnly,evaluateOnly,test,all_categories)
+   # print(predictedLabels)
 
 main()
