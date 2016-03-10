@@ -8,13 +8,16 @@ from sklearn import linear_model
 from sklearn.cluster import KMeans
 from datetime import datetime
 
-def parse_time(x):
+def parse_time(x,type):
     DD=datetime.strptime(x,"%Y-%m-%d %H:%M:%S")
-    time=DD.hour#*60+DD.minute
-    day=DD.day
-    month=DD.month
-    year=DD.year
-    return time,day,month,year
+    if(type == "time"):
+        return DD.hour#*60+DD.minute
+    if(type == "day"):
+        return DD.day
+    if(type == "month"):
+        return DD.month
+    if(type == "year"):
+        return DD.year
 
 def llfun(act, pred):
     """ Logloss function for 1/0 probability
@@ -24,8 +27,8 @@ def llfun(act, pred):
 def readData():
     train = pd.read_csv('data/train.csv')
     test = pd.read_csv('data/test.csv')
-    print("Number of cases in the training set: %s" % len(train))
-    print("Number of cases in the testing set: %s" % len(test))
+    print "Number of cases in the training set: %s" % len(train)
+    print "Number of cases in the testing set: %s" % len(test)
     return (train,test)
 
 def sliceByCategory(categories, train):
@@ -34,6 +37,13 @@ def sliceByCategory(categories, train):
 
 def applyFunction(train, inputCol, check, outputCol):
     train[outputCol] = train[inputCol].apply(lambda x:1 if x == check else 0 )
+    return train
+
+def applyDateFunction(train):
+    train['time'] = train['Dates'].apply(lambda x:parse_time(x,"time"))
+    train['day'] = train['Dates'].apply(lambda x:parse_time(x,"day"))
+    train['month'] = train['Dates'].apply(lambda x:parse_time(x,"month"))
+    train['year'] = train['Dates'].apply(lambda x:parse_time(x,"year"))
     return train
 
 def convertToFeatures(train):
@@ -54,20 +64,21 @@ def convertToFeatures(train):
     train = applyFunction(train, 'PdDistrict',"SOUTHERN", "SOUTHERN")
     train = applyFunction(train, 'PdDistrict',"TARAVAL", "TARAVAL")
     train = applyFunction(train, 'PdDistrict',"TENDERLOIN", "TENDERLOIN")
-    for i in range(0,len(train),1):
-        [time,day,month,year] = parse_time(train.loc[i]['Dates'])
-        train.loc[i]['time'] = time
-        train.loc[i]['year'] = year
-        train.loc[i]['month'] = month
-        train.loc[i]['day'] = day
+    train = applyDateFunction(train)
+    # for i in range(0,len(train),1):
+    #     [time,day,month,year] = parse_time(train.loc[i]['Dates'])
+    #     train.loc[i]['time'] = time
+    #     train.loc[i]['year'] = year
+    #     train.loc[i]['month'] = month
+    #     train.loc[i]['day'] = day
     return train
 
 def divideIntoTrainAndEvaluationSet(fraction, train):
     msk = np.random.rand(len(train)) < fraction
     trainOnly = train[msk]
     evaluateOnly = train[~msk]
-    print("Number of cases in the training only set: %s" % len(trainOnly))
-    print("Number of cases in the evaluation  set: %s" % len(evaluateOnly))
+    print "Number of cases in the training only set: %s" % len(trainOnly)
+    print "Number of cases in the evaluation  set: %s" % len(evaluateOnly)
     return(trainOnly,evaluateOnly)
 
 def classify(name, train, evaluate, test,all_categories):
@@ -80,11 +91,11 @@ def classify(name, train, evaluate, test,all_categories):
     elif(name == "dtrees"):
         return dtreesClassifier(train, evaluate, test)
     else:
-        print(" Specify the right name of the classifier : knn/svm/logit/dtrees")
+        print " Specify the right name of the classifier : knn/svm/logit/dtrees"
 
 
 def knnClassifier(train, evaluate, test):
-    print('In K nerarest neighbour')
+    print 'In K nerarest neighbour'
     x = train[['X', 'Y']]
     y = train['Category'].astype('category')
     actual = evaluate['Category'].astype('category')
@@ -125,11 +136,11 @@ def svmClassifier(train, test):
 def logisticRegressionClassifier(train,evaluate,test,all_categories):
     print('In Logistic Regression')
     x_train = train[['sun','mon','tues','wed','thur','fri','sat','BAYVIEW',
- 'CENTRAL','INGLESIDE','MISSION','NORTHERN','PARK','RICHMOND','SOUTHERN','TARAVAL','TENDERLOIN','n_clusters']]
+ 'CENTRAL','INGLESIDE','MISSION','NORTHERN','PARK','RICHMOND','SOUTHERN','TARAVAL','TENDERLOIN','n_clusters','time','day','month','year']]
     x_eval =  evaluate[['sun','mon','tues','wed','thur','fri','sat','BAYVIEW',
- 'CENTRAL','INGLESIDE','MISSION','NORTHERN','PARK','RICHMOND','SOUTHERN','TARAVAL','TENDERLOIN','n_clusters']]
+ 'CENTRAL','INGLESIDE','MISSION','NORTHERN','PARK','RICHMOND','SOUTHERN','TARAVAL','TENDERLOIN','n_clusters','time','day','month','year']]
     x_test = test[['sun','mon','tues','wed','thur','fri','sat','BAYVIEW',
- 'CENTRAL','INGLESIDE','MISSION','NORTHERN','PARK','RICHMOND','SOUTHERN','TARAVAL','TENDERLOIN','n_clusters']]
+ 'CENTRAL','INGLESIDE','MISSION','NORTHERN','PARK','RICHMOND','SOUTHERN','TARAVAL','TENDERLOIN','n_clusters','time','day','month','year']]
     y_train = train['Category'].astype('category')
     y_eval = evaluate['Category'].astype('category')
 
@@ -141,7 +152,7 @@ def logisticRegressionClassifier(train,evaluate,test,all_categories):
     #for cc in c:
     #c = [0.05,0.1]
     for cc in c:
-        print(cc)
+        print cc
         logreg = linear_model.LogisticRegression(C=cc,multi_class='multinomial',solver='lbfgs')
         logreg.fit(x_train, y_train)
         outcome = logreg.predict(x_eval)
@@ -150,7 +161,7 @@ def logisticRegressionClassifier(train,evaluate,test,all_categories):
         #if l<minL:
         #    minL = l
         #    minC = cc
-        print('c: ',cc,'loss: ',l)
+        print 'c: ',cc,'loss: ',l
 
     outcomes = logreg.predict(x_test)
     submit = pd.DataFrame({'Id': test.Id.tolist()})
@@ -168,7 +179,7 @@ def logisticRegressionClassifier(train,evaluate,test,all_categories):
     #logreg = linear_model.LogisticRegression(C=0.05,multi_class='multinomial',solver='lbfgs')
 
 def dtreesClassifier(train, test):
-    print('In decision trees')
+    print 'In decision trees'
 
 #def createSubmissionFile(lables, fileName):
 
@@ -177,27 +188,21 @@ def kMeansClustering(train,evaluate,test):
     f_train = km.fit_predict(train[['X','Y']])
     f_eval = km.predict(evaluate[['X','Y']])
     f_test = km.predict(test[['X','Y']])
-    print(km.cluster_centers_)
-    cf_train=[]
-    for i in range(0,len(f_train)-1,1):
-        cf_train.append(km.cluster_centers_[f_train[i]])
-    print(f_train)
-    print(cf_train)
-    print(f_eval)
-    print(f_test)
+    print km.cluster_centers_
+    print f_train
+    print f_eval
+    print f_test
     return (f_train,f_eval,f_test)
 
 
 def main():
    (train, test) = readData()
-
    train = convertToFeatures(train)
    test = convertToFeatures(test)
-
-   print(train.columns.values)
-   print(train[1111:1136])
+   # print train.columns.values
+   # print train[1111:1136]
    all_categories = pd.Series(train.Category.values).unique()
-   print(all_categories)
+   # print all_categories
 
    categories = ["LARCENY/THEFT", "OTHER OFFENSES", "NON-CRIMINAL","ASSAULT", "DRUG/NARCOTIC"]
    trainWithTopCategories = sliceByCategory(categories, train)
@@ -213,7 +218,7 @@ def main():
    #predictedLabels = classify("knn",trainOnly, evaluateOnly, test)
    #print(predictedLabels)
 
-   #predictedLabels = classify("logit",trainOnly,evaluateOnly,test,all_categories)
-   #print(predictedLabels)
+   predictedLabels = classify("logit",trainOnly,evaluateOnly,test,all_categories)
+   print(predictedLabels)
 
 main()
