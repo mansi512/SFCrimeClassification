@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
 import math
-#import zipfile
 import matplotlib.pyplot as plt
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn import linear_model
@@ -96,46 +95,6 @@ def classify(name, train, evaluate, test,all_categories):
     else:
         print " Specify the right name of the classifier : knn/svm/logit/dtrees"
 
-
-def knnClassifier(train, evaluate, test):
-    print 'In K nerarest neighbour'
-    x = train[['X', 'Y']]
-    y = train['Category'].astype('category')
-    actual = evaluate['Category'].astype('category')
-
-    # Fit
-    logloss = []
-    for i in range(1, 50, 1):
-        knn = KNeighborsClassifier(n_neighbors=i)
-        knn.fit(x, y)
-
-        # Predict on test set
-        outcome = knn.predict(evaluate[['X', 'Y']])
-
-        # Logloss
-        logloss.append(llfun(actual, outcome))
-
-    plt.plot(logloss)
-    plt.savefig('n_neighbors_vs_logloss.png')
-
-    # Fit test data
-    x_test = test[['X', 'Y']]
-    knn = KNeighborsClassifier(n_neighbors=40)
-    knn.fit(x, y)
-    outcomes = knn.predict(x_test)
-    return outcomes
-# Move this to a separate function later
-'''
-    submit = pd.DataFrame({'Id': test.Id.tolist()})
-    for category in y.cat.categories:
-        submit[category] = np.where(outcomes == category, 1, 0)
-
-    submit.to_csv('k_nearest_neigbour.csv', index = False)
-'''
-
-def svmClassifier(train, test):
-    print('In SVM')
-
 def logisticRegressionClassifier(train,evaluate,test,all_categories):
     print('In Logistic Regression')
     x_train = train[['sun','mon','tues','wed','thur','fri','sat','BAYVIEW',
@@ -154,10 +113,6 @@ def logisticRegressionClassifier(train,evaluate,test,all_categories):
         logreg.fit(x_train, y_train)
         outcome = logreg.predict(x_eval)
         l = llfun(y_eval, outcome)
-        #logloss.append(l)
-        #if l<minL:
-        #    minL = l
-        #    minC = cc
         print 'c: ',cc,'loss: ',l
 
     outcomes = logreg.predict(x_test)
@@ -166,43 +121,6 @@ def logisticRegressionClassifier(train,evaluate,test,all_categories):
         submit[category] = np.where(outcomes == category, 1, 0)
     submit.to_csv('logit.csv', index = False)
     return outcomes
-
-def regress(train,evaluate,test,all_categories):
-    print('In Linear Regression')
-
-    le = LabelEncoder()
-
-    x_train = train[['sun','mon','tues','wed','thur','fri','sat','BAYVIEW',
- 'CENTRAL','INGLESIDE','MISSION','NORTHERN','PARK','RICHMOND','SOUTHERN','TARAVAL','TENDERLOIN','n_clusters','time','day','month','year']]
-    x_eval =  evaluate[['sun','mon','tues','wed','thur','fri','sat','BAYVIEW',
- 'CENTRAL','INGLESIDE','MISSION','NORTHERN','PARK','RICHMOND','SOUTHERN','TARAVAL','TENDERLOIN','n_clusters','time','day','month','year']]
-    x_test = test[['sun','mon','tues','wed','thur','fri','sat','BAYVIEW',
- 'CENTRAL','INGLESIDE','MISSION','NORTHERN','PARK','RICHMOND','SOUTHERN','TARAVAL','TENDERLOIN','n_clusters','time','day','month','year']]
-    y_train = train['Category'].astype('category')
-    y_train = le.fit_transform(y_train)
-
-    print y_train
-
-    y_eval = evaluate['Category'].astype('category')
-    y_eval = le.transform(y_eval)
-
-    clf = linear_model.LinearRegression()
-    clf.fit(x_train, y_train)
-    outcome = clf.predict(x_eval)
-    l = llfun(y_eval, outcome)
-    print 'loss: ',l
-
-    outcomes = clf.predict(x_test)
-    submit = pd.DataFrame({'Id': test.Id.tolist()})
-    for category in all_categories:
-        submit[category] = np.where(outcomes == category, 1, 0)
-    submit.to_csv('logit.csv', index = False)
-    return outcomes
-
-def dtreesClassifier(train, test):
-    print 'In decision trees'
-
-#def createSubmissionFile(lables, fileName):
 
 def kMeansClustering(train,evaluate,test):
     km = KMeans(n_clusters=40)
@@ -236,33 +154,26 @@ def main():
    (train, test) = readData()
    train = convertToFeatures(train)
    test = convertToFeatures(test)
-
-
-
-   #print train.columns.values
-   # print train[1111:1136]
-   # all_categories = pd.Series(train.Category.values).unique()
+   
+   all_categories = pd.Series(train.Category.values).unique()
    # print all_categories
 
    categories = ["LARCENY/THEFT", "OTHER OFFENSES", "NON-CRIMINAL","ASSAULT", "DRUG/NARCOTIC"]
    plots(train,categories)
-   # trainWithTopCategories = sliceByCategory(categories, train)
-   #
-   # (trainOnly,evaluateOnly) = divideIntoTrainAndEvaluationSet(0.8, trainWithTopCategories)
-   # (f_train,f_eval,f_test)=kMeansClustering(trainOnly,evaluateOnly,test)
-   #
-   # trainOnly["n_clusters"]=f_train
-   # evaluateOnly["n_clusters"]=f_eval
-   # test["n_clusters"]=f_test
+   
+   trainWithTopCategories = sliceByCategory(categories, train)
+   
+   (trainOnly,evaluateOnly) = divideIntoTrainAndEvaluationSet(0.8, trainWithTopCategories)
+   (f_train,f_eval,f_test)=kMeansClustering(trainOnly,evaluateOnly,test)
+   
+   trainOnly["n_clusters"]=f_train
+   evaluateOnly["n_clusters"]=f_eval
+   test["n_clusters"]=f_test
 
    # Call the classifiers - replace with your classifier
-   #predictedLabels = classify("knn",trainOnly, evaluateOnly, test)
-   #print(predictedLabels)
+   
+   predictedLabels = classify("logit",trainOnly,evaluateOnly,test,all_categories)
+   print(predictedLabels)
 
-   # predictedLabels = classify("logit",trainOnly,evaluateOnly,test,all_categories)
-   # print(predictedLabels)
-
-   # predictedLabels = regress(trainOnly,evaluateOnly,test,all_categories)
-   # print(predictedLabels)
-
+   
 main()
